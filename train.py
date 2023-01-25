@@ -12,20 +12,18 @@ from a2c import A2C
 from minatar import Environment
 from minatar_utils.models import ACNetwork
 from minatar_utils.wrappers import MinAtarEnv
-from utils import evaluate
 
 import wandb
 import git
 from typing import Union
 
-import numpy as np
-import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
 
 class MinAtarConfig(BaseModel):
-    game: Literal["breakout", "asterix", "freeway", "seaquest", "space_invaders"] = "breakout"
+    game: Literal["breakout", "asterix", "freeway",
+                  "seaquest", "space_invaders"] = "breakout"
     steps: int = int(5e6)
     eval_interval: int = int(1e5)
     eval_n_episodes: int = 64
@@ -75,6 +73,7 @@ def act(model: nn.Module, obs: np.ndarray, deterministic: bool = False) -> Union
     a = dist.probs.argmax(dim=-1) if deterministic else dist.sample()
     return a
 
+
 args = MinAtarConfig(**OmegaConf.to_object(OmegaConf.from_cli()))
 print(args)
 
@@ -98,7 +97,8 @@ n_train = 0
 log = {"steps": 0, "avg_prob": 1.0 / num_actions}
 while True:
     log["eval_R"] = evaluate(
-        MinAtarEnv(game=args.game, num_envs=args.num_envs, seed=args.seed+9999),  # TODO: fix seed
+        MinAtarEnv(game=args.game, num_envs=args.num_envs,
+                   seed=args.seed+9999),  # TODO: fix seed
         model,
         deterministic=args.eval_deterministic,
         num_episodes=args.eval_n_episodes,
@@ -107,5 +107,6 @@ while True:
     print(json.dumps(log))
     if algo.n_steps >= args.steps:
         break
-    log = algo.train(env, model, opt, n_steps_lim=(n_train + 1) * args.eval_interval)
+    log = algo.train(env, model, opt, n_steps_lim=(
+        n_train + 1) * args.eval_interval)
     n_train += 1
