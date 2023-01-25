@@ -32,7 +32,7 @@ class RandomState:
 
 
 class MinAtarEnv:
-    def __init__(self, game, num_envs: int, seed: int) -> None:
+    def __init__(self, game, num_envs: int, seed: int, version: str) -> None:
         super().__init__()
         self.game = game
         self.num_envs = num_envs
@@ -45,8 +45,13 @@ class MinAtarEnv:
             self.envs[i].random = RandomState(seeds[i])
 
         # define spaces
-        self.action_set = self.envs[0].minimal_action_set()  # use minatar v1
-        self.num_action = len(self.action_set)
+        if version == "v1":
+            self.action_set = self.envs[0].minimal_action_set()
+        elif version == "v0":
+            self.action_set = list(range(self.envs[0].num_actions()))
+        else:
+            assert False, f"Wrong version: {version}"
+        self.num_actions = len(self.action_set)
         self.num_channels = {
             "breakout": 4,
             "asterix": 4,

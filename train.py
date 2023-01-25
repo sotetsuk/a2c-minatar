@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from torch.distributions import Categorical
 
 import wandb
-from minatar import Environment
 from utils import MinAtarEnv
 
 
@@ -33,6 +32,7 @@ class MinAtarConfig(BaseModel):
     unroll_length: int = 5
     debug: bool = False
     githash: str = git.Repo().head.object.hexsha[:7]
+    minatar_version: Literal["v0", "v1"] = "v1"
 
 
 class ACNetwork(nn.Module):
@@ -250,20 +250,18 @@ random.seed(args.seed)
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 
-in_channels = Environment(args.game).state_shape()[2]
-num_actions = len(Environment(args.game).minimal_action_set())
 
 algo = A2C(config=args)
-env = MinAtarEnv(game=args.game, num_envs=args.num_envs, seed=args.seed)
-model = ACNetwork(in_channels, num_actions, args.game)
+env = MinAtarEnv(game=args.game, num_envs=args.num_envs, seed=args.seed, version=args.minatar_version)
+model = ACNetwork(env.num_channels, env.num_actions, args.game)
 opt = optim.Adam(model.parameters(), lr=args.lr)
 
 n_train = 0
-log = {"steps": 0, f"{args.game}/prob": 1.0 / num_actions}
+log = {"steps": 0, f"{args.game}/prob": 1.0 / env.num_actions}
 while True:
     log[f"{args.game}/eval_R"] = evaluate(
         MinAtarEnv(
-            game=args.game, num_envs=args.num_envs, seed=args.seed + 9999
+            game=args.game, num_envs=args.num_envs, seed=args.seed + 9999, version=args.minatar_version
         ),  # TODO: fix seed
         model,
         deterministic=args.eval_deterministic,
