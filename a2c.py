@@ -4,11 +4,9 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
-from utils import MinAtarConfig
-
 
 class A2C:
-    def __init__(self, config: MinAtarConfig):
+    def __init__(self, config):
         self.config = config
 
         self.n_steps: int = 0
