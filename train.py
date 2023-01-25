@@ -114,10 +114,10 @@ class A2C:
         return {
             "steps": self.n_steps,
             "n_episodes": self.n_episodes,
-            "avg_ent": self.avg_ent,
-            "avg_prob": self.avg_prob,
-            "value": self.value,
-            "train_R": self.avg_R,
+            f"{self.config.game}/ent": self.avg_ent,
+            f"{self.config.game}/prob": self.avg_prob,
+            f"{self.config.game}/value": self.value,
+            f"{self.config.game}/train_R": self.avg_R,
         }
 
     def rollout(self) -> None:
@@ -226,7 +226,9 @@ def evaluate(
         R = torch.zeros(num_envs)
         t = 0
         while not all(done):
-            actions = act(model, obs, deterministic)
+            logits, _ = model(obs)
+            dist = Categorical(logits=logits)
+            actions = dist.probs.argmax(dim=-1) if deterministic else dist.sample()
             obs, r, done, info = env.step(actions)
             R += r  # If some episode is terminated, all r is zero afterwards.
             t += 1
@@ -235,15 +237,6 @@ def evaluate(
         R_seq.append(R.mean())
 
     return float(sum(R_seq) / len(R_seq))
-
-
-def act(
-    model: nn.Module, obs: np.ndarray, deterministic: bool = False
-) -> Union[int, np.ndarray]:
-    logits, _ = model(obs)
-    dist = Categorical(logits=logits)
-    a = dist.probs.argmax(dim=-1) if deterministic else dist.sample()
-    return a
 
 
 args = MinAtarConfig(**OmegaConf.to_object(OmegaConf.from_cli()))
@@ -266,9 +259,9 @@ model = ACNetwork(in_channels, num_actions, args.game)
 opt = optim.Adam(model.parameters(), lr=args.lr)
 
 n_train = 0
-log = {"steps": 0, "avg_prob": 1.0 / num_actions}
+log = {"steps": 0, f"{args.game}/prob": 1.0 / num_actions}
 while True:
-    log["eval_R"] = evaluate(
+    log[f"{args.game}/eval_R"] = evaluate(
         MinAtarEnv(
             game=args.game, num_envs=args.num_envs, seed=args.seed + 9999
         ),  # TODO: fix seed
@@ -276,7 +269,7 @@ while True:
         deterministic=args.eval_deterministic,
         num_episodes=args.eval_n_episodes,
     )
-    wandb.log({f"{args.game}/{k}": v for k, v in log.items()})
+    wandb.log(log)
     print(json.dumps(log))
     if algo.n_steps >= args.steps:
         break
