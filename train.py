@@ -1,27 +1,25 @@
-from pydantic import BaseModel
-from typing import Literal
 import json
 import random
+from typing import Dict, List, Literal, Union
 
+import git
 import numpy as np
-from omegaconf import OmegaConf
 import torch
+import torch.nn as nn
 import torch.optim as optim
+from omegaconf import OmegaConf
+from pydantic import BaseModel
+from torch.distributions import Categorical
 
+import wandb
 from minatar import Environment
 from utils import MinAtarEnv
 
-import wandb
-import git
-from typing import Union, Dict, List
-
-import torch.nn as nn
-from torch.distributions import Categorical
-
 
 class MinAtarConfig(BaseModel):
-    game: Literal["breakout", "asterix", "freeway",
-                  "seaquest", "space_invaders"] = "breakout"
+    game: Literal[
+        "breakout", "asterix", "freeway", "seaquest", "space_invaders"
+    ] = "breakout"
     steps: int = int(5e6)
     eval_interval: int = int(1e5)
     eval_n_episodes: int = 64
@@ -38,12 +36,13 @@ class MinAtarConfig(BaseModel):
 
 
 class ACNetwork(nn.Module):
-    """Modified from MinAtar example: 
-      - https://github.com/kenjyoung/MinAtar/blob/master/examples/AC_lambda.py
+    """Modified from MinAtar example:
+    - https://github.com/kenjyoung/MinAtar/blob/master/examples/AC_lambda.py
     """
+
     def __init__(self, in_channels, num_actions, env_name):
         super(ACNetwork, self).__init__()
-        
+
         def size_linear_unit(size, kernel_size=3, stride=1):
             return (size - (kernel_size - 1) - 1) // stride + 1
 
@@ -60,11 +59,12 @@ class ACNetwork(nn.Module):
     def forward(self, x):
         dSiLU = lambda x: torch.sigmoid(x) * (1 + x * (1 - torch.sigmoid(x)))
         SiLU = lambda x: x * torch.sigmoid(x)
-        
+
         x = x.reshape((x.shape[0], -1, 10, 10))  # (n_samples, channels in env, 10, 10)
         x = SiLU(self.conv(x))
         x = dSiLU(self.fc_hidden(x.view(x.size(0), -1)))
         return self.policy(x), self.value(x)
+
 
 class A2C:
     def __init__(self, config: MinAtarConfig):
@@ -126,8 +126,10 @@ class A2C:
         self.model.train()
         for unroll_ix in range(self.config.unroll_length):
             action, log_prob, entropy, value = self.act(self.observations)  # agent step
-            self.observations, rewards, terminated, _ = self.env.step(action.numpy())  # env step
-            self.n_steps +=  self.env.num_envs
+            self.observations, rewards, terminated, _ = self.env.step(
+                action.numpy()
+            )  # env step
+            self.n_steps += self.env.num_envs
             truncated = (
                 int(unroll_ix == self.config.unroll_length - 1) * (1 - terminated.int())
             ).bool()
@@ -151,7 +153,7 @@ class A2C:
         # pg loss
         log_prob = torch.stack(self.data["log_prob"]).t()  # (n_env, seq_len)
         b = v.detach()
-        loss = - (v_tgt - b) * log_prob
+        loss = -(v_tgt - b) * log_prob
         # value loss
         value_loss = (v_tgt - v) ** 2
         # ent loss
@@ -235,7 +237,9 @@ def evaluate(
     return float(sum(R_seq) / len(R_seq))
 
 
-def act(model: nn.Module, obs: np.ndarray, deterministic: bool = False) -> Union[int, np.ndarray]:
+def act(
+    model: nn.Module, obs: np.ndarray, deterministic: bool = False
+) -> Union[int, np.ndarray]:
     logits, _ = model(obs)
     dist = Categorical(logits=logits)
     a = dist.probs.argmax(dim=-1) if deterministic else dist.sample()
@@ -265,8 +269,9 @@ n_train = 0
 log = {"steps": 0, "avg_prob": 1.0 / num_actions}
 while True:
     log["eval_R"] = evaluate(
-        MinAtarEnv(game=args.game, num_envs=args.num_envs,
-                   seed=args.seed+9999),  # TODO: fix seed
+        MinAtarEnv(
+            game=args.game, num_envs=args.num_envs, seed=args.seed + 9999
+        ),  # TODO: fix seed
         model,
         deterministic=args.eval_deterministic,
         num_episodes=args.eval_n_episodes,
@@ -275,6 +280,5 @@ while True:
     print(json.dumps(log))
     if algo.n_steps >= args.steps:
         break
-    log = algo.train(env, model, opt, n_steps_lim=(
-        n_train + 1) * args.eval_interval)
+    log = algo.train(env, model, opt, n_steps_lim=(n_train + 1) * args.eval_interval)
     n_train += 1

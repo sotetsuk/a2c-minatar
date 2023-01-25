@@ -9,6 +9,7 @@ from minatar import Environment
 class RandomState:
     """Hotfix to replace legacy np.random.RandomState by np.random.default_rng.
     This is faster when using deepcopy."""
+
     def __init__(self, seed) -> None:
         self.rng = np.random.default_rng(seed)
 
@@ -17,11 +18,11 @@ class RandomState:
 
     def rand(self):
         return self.rng.random()
-    
+
     def randint(self, *args, **kwargs):
         return self.rng.integers(args, kwargs)
 
-    @property 
+    @property
     def state(self):
         return self.rng.bit_generator.state
 
@@ -39,7 +40,7 @@ class MinAtarEnv:
 
         seeds = np.random.SeedSequence(seed).spawn(num_envs)
         self.envs = [Environment(game) for i in range(num_envs)]
-        # Use np.random.default_rng instead of RandomState 
+        # Use np.random.default_rng instead of RandomState
         for i in range(num_envs):
             self.envs[i].random = RandomState(seeds[i])
 
