@@ -5,7 +5,7 @@ description = ""
 authors = ["Sotetsu KOYAMADA <koyamada-s@sys.i.kyoto-u.ac.jp>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8.1"
 torch = "^1.13.1"
 pydantic = "^1.10.4"
 omegaconf = "^2.3.0"
