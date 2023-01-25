@@ -1,5 +1,8 @@
-.PHONY: format check install 
+.PHONY: clean format check install 
 
+
+clean:
+	rm -rf __pycache__
 
 format:
 	black *.py
