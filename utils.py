@@ -15,7 +15,7 @@ class MinAtarConfig(BaseModel):
     steps: int = int(5e6)
     eval_interval: int = int(1e5)
     eval_n_episodes: int = 64
-    eval_deterministic=True
+    eval_deterministic: bool = False
     seed: int = 1234
     num_envs: int = 64
     lr: float = 0.003
