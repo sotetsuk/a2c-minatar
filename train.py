@@ -12,9 +12,13 @@ from minatar_utils.models import ACNetwork
 from minatar_utils.wrappers import MinAtarEnv
 from utils import MinAtarConfig, evaluate
 
+import wandb
+
 
 args = MinAtarConfig(**OmegaConf.to_object(OmegaConf.from_cli()))
 print(args)
+
+wandb.init(project=f"a2c-minatar", entity="sotetsuk", config=args.dict())
 
 
 # fix seeds
@@ -39,6 +43,7 @@ while True:
         deterministic=args.eval_deterministic,
         num_episodes=args.eval_n_episodes,
     )
+    wandb.log({f"{args.game}/{k}": v for k, v in log.items()})
     print(json.dumps(log))
     if algo.n_steps >= args.steps:
         break
