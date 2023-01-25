@@ -7,6 +7,8 @@ import torch.nn as nn
 from pydantic import BaseModel
 from torch.distributions import Categorical
 
+import git
+
 
 class MinAtarConfig(BaseModel):
     game: Literal["breakout", "asterix", "freeway", "seaquest", "space_invaders"] = "breakout"
@@ -22,7 +24,7 @@ class MinAtarConfig(BaseModel):
     value_coef: float = 1.0
     unroll_length: int = 5
     debug: bool = False
-    exp_label: str = ""
+    githash: str = git.Repo().head.object.hexsha[:7]
 
 
 def evaluate(
