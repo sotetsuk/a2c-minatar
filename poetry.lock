@@ -951,6 +951,14 @@ jupyter-server = ">=1.8,<3"
 test = ["pytest", "pytest-console-scripts", "pytest-tornasync"]
 
 [[package]]
+name = "numpy"
+version = "1.24.1"
+description = "Fundamental package for array computing in Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[[package]]
 name = "nvidia-cublas-cu11"
 version = "11.10.3.66"
 description = "CUBLAS native runtime libraries"
@@ -1546,7 +1554,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "flake8 (<5)", "pytest-co
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.1"
-content-hash = "801f48258e1ec6f2b5e752279c5b81b94d236a63edf4a0af1b09e3d7a86bdbb3"
+content-hash = "2b733c8f9cd90894fc1d32bc05b3754ea602114cf7443a527fa59d1a900c39c7"
 
 [metadata.files]
 antlr4-python3-runtime = []
@@ -1679,6 +1687,7 @@ nbformat = []
 nest-asyncio = []
 notebook = []
 notebook-shim = []
+numpy = []
 nvidia-cublas-cu11 = []
 nvidia-cuda-nvrtc-cu11 = []
 nvidia-cuda-runtime-cu11 = []
