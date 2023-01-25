@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 
 from minatar import Environment
-from minatar_utils.wrappers import MinAtarEnv
+from utils import MinAtarEnv
 
 import wandb
 import git
