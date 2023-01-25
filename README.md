@@ -3,8 +3,7 @@
 ## How to run
 
 ```
-$ git submodule update --init
-$ poetry install
+$ make install
 $ ./run.sh
 ```
 
