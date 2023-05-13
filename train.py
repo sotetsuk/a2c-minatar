@@ -242,7 +242,7 @@ def evaluate(
 args = MinAtarConfig(**OmegaConf.to_object(OmegaConf.from_cli()))
 print(args)
 
-wandb.init(project=f"a2c-minatar", entity="sotetsuk", config=args.dict())
+wandb.init(project=f"a2c-minatar", config=args.dict())
 
 
 # fix seeds
