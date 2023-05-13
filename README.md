@@ -9,4 +9,4 @@ $ ./run.sh
 
 ## Results
 
-https://wandb.ai/sotetsuk/a2c-minatar/
+https://api.wandb.ai/links/sotetsuk/irz2kysk
