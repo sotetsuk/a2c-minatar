@@ -22,8 +22,8 @@ from utils_pgx import auto_reset
 
 class MinAtarConfig(BaseModel):
     game: Literal[
-        "breakout", "asterix", "freeway", "seaquest", "space_invaders"
-    ] = "breakout"
+        "minatar-breakout", "minatar-asterix", "minatar-freeway", "minatar-seaquest", "minatar-space_invaders"
+    ] = "minatar-breakout"
     steps: int = int(5e6)
     eval_interval: int = int(1e5)
     eval_n_episodes: int = 64
