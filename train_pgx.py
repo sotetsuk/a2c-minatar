@@ -12,7 +12,12 @@ from pydantic import BaseModel
 from torch.distributions import Categorical
 
 import wandb
+import jax
+import jax.numpy as jnp
+import numpy as np
 import pgx
+
+from utils_pgx import auto_reset
 
 
 class MinAtarConfig(BaseModel):
@@ -85,23 +90,25 @@ class A2C:
         self.avg_prob = 0.0
         self.value = 0.0
 
-        self.observations = None
+        self.states = None
 
     def train(
         self,
         env,
         model: nn.Module,
         opt,
+        keys,
         n_steps_lim: int = 100_000,
     ) -> Dict[str, float]:
         self.env, self.model, self.opt = env, model, opt
-
+        self.num_envs, _ = keys.shape
         if self.observations is None:
-            self.observations = self.env.reset()  # (num_envs, obs_dim)
-
+            self.states = jax.vmap(self.env)(keys)
+        
+        step_fn = jax.jit(jax.vmap(auto_reset(env.step, env.init)))
         while self.n_steps < n_steps_lim:
             # rollout data
-            self.rollout()
+            self.rollout(step_fn)
 
             # compute loss and update gradient
             self.opt.zero_grad()
@@ -125,16 +132,18 @@ class A2C:
         self.data = {}
         self.model.train()
         for unroll_ix in range(self.config.unroll_length):
-            action, log_prob, entropy, value = self.act(self.observations)  # agent step
-            self.observations, rewards, terminated, _ = self.env.step(
-                action.numpy()
+            action, log_prob, entropy, value = self.act(torch.from_numpy(np.asarray(self.states.observation)))  # agent step
+            self.states = self.env.step(
+                self.states, action.numpy()
             )  # env step
-            self.n_steps += self.env.num_envs
+            terminated = self.states.terminated.int()
+            rewards = self.states.rewards
+            self.n_steps += self.num_envs
             truncated = (
                 int(unroll_ix == self.config.unroll_length - 1) * (1 - terminated.int())
             ).bool()
             with torch.no_grad():
-                _, _, _, next_value = self.act(self.observations)
+                _, _, _, next_value = self.act(torch.from_numpy(np.asarray(self.states.observation)))
             self.push_data(
                 terminated=terminated,
                 truncated=truncated,
@@ -144,7 +153,6 @@ class A2C:
                 next_value=next_value,
                 rewards=rewards,
             )
-            self.observations = self.env.init(terminated)  # auto reset
 
     def loss(self, reduce=True) -> torch.Tensor:
         v = torch.stack(self.data["value"]).t()  # (num_envs, max_seq_len + 1)
@@ -215,22 +223,24 @@ def evaluate(
     deterministic: bool = False,
     num_episodes=100,
     time_limit=3000,  # for minatar/seaquest
+    subkeys,
 ) -> float:
     model.eval()
-    num_envs = env.num_envs
+    num_envs, _ = subkeys.shape
     assert num_episodes % num_envs == 0
     R_seq = []
+    step_fn = jax.jit(jax.vmap(env.step))
     for i in range(num_episodes // num_envs):
-        obs = env.reset()  # (num_envs, obs_size)
-        done = [False for _ in range(num_envs)]
-        R = torch.zeros(num_envs)
+        states = jax.vmap(env.init)(subkeys)  # (num_envs, obs_size)
+        terminated = states.terminated
+        R = jnp.zeros(num_envs)
         t = 0
-        while not all(done):
-            logits, _ = model(obs)
+        while not terminated.all():
+            logits, _ = model(torch.from_numpy(np.asarray(states.observation)))
             dist = Categorical(logits=logits)
             actions = dist.probs.argmax(dim=-1) if deterministic else dist.sample()
-            obs, r, done, info = env.step(actions)
-            R += r  # If some episode is terminated, all r is zero afterwards.
+            states = env.step(states, actions)
+            R += states.rewards  # If some episode is terminated, all r is zero afterwards.
             t += 1
             if t >= time_limit:
                 break
@@ -252,7 +262,11 @@ torch.manual_seed(args.seed)
 
 
 algo = A2C(config=args)
-env = MinAtarEnv(game=args.game, num_envs=args.num_envs, seed=args.seed, version=args.minatar_version)
+key = jax.random.PRNGKey(args.seed)
+key, subkey = jax.random.split(key)
+keys = jax.random.split(key, args.num_envs)
+subkeys = jax.random.split(subkey, args.num_envs)
+env = pgx.make(args.game)
 model = ACNetwork(env.num_channels, env.num_actions, args.game)
 opt = optim.Adam(model.parameters(), lr=args.lr)
 
@@ -260,12 +274,11 @@ n_train = 0
 log = {"steps": 0, f"{args.game}/prob": 1.0 / env.num_actions}
 while True:
     log[f"{args.game}/eval_R"] = evaluate(
-        MinAtarEnv(
-            game=args.game, num_envs=args.num_envs, seed=args.seed + 9999, version=args.minatar_version
-        ),  # TODO: fix seed
+        env,  # TODO: fix seed
         model,
         deterministic=args.eval_deterministic,
         num_episodes=args.eval_n_episodes,
+        subkeys,
     )
     wandb.log(log)
     print(json.dumps(log))
